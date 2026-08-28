@@ -1,0 +1,38 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Documento único com o anúncio atual — leitura pública, escrita só
+    // pelo Admin SDK (Cloud Functions), nunca direto do cliente.
+    match /billboard/{billboardId} {
+      allow read: if true;
+      allow write: if false;
+
+      // histórico de donos anteriores — também só leitura pública.
+      match /history/{entryId} {
+        allow read: if true;
+        allow write: if false;
+      }
+    }
+
+    // Rascunhos de checkout: contém e-mail e outros dados sensíveis do
+    // anunciante. Só o Admin SDK (Functions) pode ler/escrever.
+    match /pendingClaims/{sessionId} {
+      allow read, write: if false;
+    }
+
+    // Contadores globais do site (ex: total de visitantes) — nunca zeram,
+    // independem de quem é o dono atual do billboard. Leitura pública,
+    // escrita só via Admin SDK.
+    match /stats/{statId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Bloqueia tudo o resto por padrão.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
