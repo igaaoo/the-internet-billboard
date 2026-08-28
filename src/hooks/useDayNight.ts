@@ -26,9 +26,9 @@ export function useDayNight() {
   );
 
   useEffect(() => {
-    const forced = readForcedOverride();
-    if (forced !== null) {
-      setIsNight(forced);
+    if (readForcedOverride() !== null) {
+      // já veio certo do inicializador do useState acima — sem relógio
+      // pra reavaliar enquanto o override estiver forçado.
       return;
     }
     const id = setInterval(() => {
