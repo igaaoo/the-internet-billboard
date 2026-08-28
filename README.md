@@ -1,73 +1,76 @@
 # The Internet Billboard
 
-Um único billboard 3D (Next.js + Three.js) onde quem paga mais assume o
-anúncio — até o próximo lance. Pagamentos via Stripe, dados em Firestore,
-lógica sensível (validação de preço, checkout, webhook) em Cloud Functions.
+A single 3D billboard (Next.js + Three.js) where whoever pays the most
+takes over the ad — until the next bid. Payments via Stripe, data in
+Firestore, sensitive logic (price validation, checkout, webhook) in
+Cloud Functions.
 
 ## Stack
 
 - **Front-end:** Next.js 16 (App Router) + TypeScript + Tailwind v4
-- **3D:** three.js via `@react-three/fiber`, `@react-three/drei` e
-  `@react-three/postprocessing` (bloom, vinheta, grão)
-- **Dados:** Firebase Firestore (`billboard/current` + `billboard/current/history`)
-- **Pagamentos:** Stripe Checkout, criado e confirmado via Firebase Functions
+- **3D:** three.js via `@react-three/fiber`, `@react-three/drei` and
+  `@react-three/postprocessing` (bloom, vignette, grain)
+- **Data:** Firebase Firestore (`billboard/current` + `billboard/current/history`)
+- **Payments:** Stripe Checkout, created and confirmed via Firebase Functions
   (`createCheckoutSession` callable + `stripeWebhook`)
 
-## Como funciona a "disputa"
+## How the "bidding war" works
 
-Não existe leilão com tempo — o preço só sobe. Cada novo anúncio precisa
-pagar pelo menos 10% a mais (ou +R$5, o que for maior) que o valor pago
-pelo dono atual. Essa regra vive em `functions/src/pricing.ts` e é
-validada **duas vezes no servidor**: na criação do checkout e de novo,
-dentro de uma transação, quando o webhook do Stripe confirma o pagamento
-(pra cobrir a corrida de dois pagamentos simultâneos).
+There's no timed auction — the price only ever goes up. Each new ad has
+to pay at least the next whole real (R$1) above whatever the current
+owner paid — no percentage, no cents. That rule lives in
+`functions/src/pricing.ts` and is validated **twice on the server**:
+once when the checkout session is created, and again inside a
+transaction when the Stripe webhook confirms payment (to cover the race
+between two simultaneous payments).
 
-## Rodando localmente
+## Running locally
 
 ```bash
 npm install
-cp .env.local.example .env.local   # preencha depois de criar o projeto Firebase
+cp .env.local.example .env.local   # fill in after creating the Firebase project
 npm run dev
 ```
 
-O site funciona mesmo **sem** as variáveis do Firebase preenchidas — ele
-cai num billboard "vazio" de demonstração pra você ver a cena 3D e a UI.
-O botão "Assumir o billboard" só funciona de verdade depois do passo 2.
+The site works even **without** the Firebase env vars filled in — it
+falls back to an "empty" demo billboard so you can see the 3D scene and
+UI. The "Claim the billboard" button only works for real after step 2
+below.
 
-## 1. Criar o projeto Firebase
+## 1. Create the Firebase project
 
-1. Crie um projeto em https://console.firebase.google.com
-2. Ative o **Firestore** (modo produção, escolha uma região próxima do
-   Brasil, ex. `southamerica-east1`)
-3. Em *Configurações do projeto → Geral*, adicione um **app Web** e copie
-   as chaves pro seu `.env.local` (veja `.env.local.example`)
-4. Edite `.firebaserc` e troque `COLOQUE-AQUI-O-ID-DO-SEU-PROJETO-FIREBASE`
-   pelo Project ID real
-5. Instale a CLI (`npm i -g firebase-tools`), rode `firebase login` e
-   depois `firebase deploy --only firestore:rules`
+1. Create a project at https://console.firebase.google.com
+2. Enable **Firestore** (production mode, pick a region close to your
+   users, e.g. `southamerica-east1`)
+3. Under *Project settings → General*, add a **Web app** and copy the
+   config into your `.env.local` (see `.env.local.example`)
+4. Edit `.firebaserc` and replace `COLOQUE-AQUI-O-ID-DO-SEU-PROJETO-FIREBASE`
+   with your real Project ID
+5. Install the CLI (`npm i -g firebase-tools`), run `firebase login`,
+   then `firebase deploy --only firestore:rules`
 
-## 2. Criar a conta Stripe
+## 2. Create the Stripe account
 
-1. Crie uma conta em https://dashboard.stripe.com (o modo de teste já
-   serve pra desenvolver)
-2. Pegue a **Secret key** (`sk_test_...`)
-3. Configure os secrets das Functions (produção, via Secret Manager):
+1. Create an account at https://dashboard.stripe.com (test mode is
+   enough for development)
+2. Grab the **Secret key** (`sk_test_...`)
+3. Set the Functions secrets (production, via Secret Manager):
    ```bash
    firebase functions:secrets:set STRIPE_SECRET_KEY
    ```
-4. Depois de fazer o primeiro deploy das functions, crie um **webhook
-   endpoint** no Stripe apontando pra:
-   `https://<sua-região>-<seu-projeto>.cloudfunctions.net/stripeWebhook`
-   escutando o evento `checkout.session.completed`, copie o **Signing
-   secret** (`whsec_...`) e rode:
+4. After the first Functions deploy, create a **webhook endpoint** in
+   Stripe pointing to:
+   `https://<your-region>-<your-project>.cloudfunctions.net/stripeWebhook`
+   listening for the `checkout.session.completed` event, copy the
+   **Signing secret** (`whsec_...`) and run:
    ```bash
    firebase functions:secrets:set STRIPE_WEBHOOK_SECRET
    ```
-5. Ajuste o parâmetro `SITE_URL` (usado nos redirects de sucesso/cancelamento)
-   no `firebase.json` ou via `.env` — veja `functions/.env.example` pro
-   emulador local.
+5. Set the `SITE_URL` param (used for the success/cancel redirects) via
+   a `functions/.env.<project-id>` file — see `functions/.env.example`
+   for the local emulator.
 
-## 3. Deploy das Functions
+## 3. Deploy the Functions
 
 ```bash
 cd functions
@@ -76,44 +79,43 @@ npm run build
 firebase deploy --only functions
 ```
 
-## 4. Deploy do front-end
+## 4. Deploy the front-end
 
-O app é um Next.js normal — funciona em qualquer host (Vercel é o mais
-simples). Configure as mesmas variáveis `NEXT_PUBLIC_FIREBASE_*` nas
-env vars do host, aponte o domínio `theinternetbillboard.lol` pra lá, e
-pronto.
+It's a regular Next.js app — works on any host (Vercel is the
+simplest). Set the same `NEXT_PUBLIC_FIREBASE_*` env vars on the host,
+point your domain at it, and you're done.
 
-## Estrutura
+## Structure
 
 ```
 src/
-  app/                  # rota única (page.tsx) + layout + globals.css
+  app/                  # single route (page.tsx) + layout + globals.css
   components/
-    scene/               # tudo do three.js: Billboard, Grass, Ground,
-                          # VolumetricLight (feixes falsos), Effects (bloom),
-                          # CameraRig (OrbitControls restrito)
-    ui/                  # InfoPanel (esquerda), HistoryPanel (direita),
-                          # BottomBar (CTA central embaixo), ClaimModal
+    scene/               # everything three.js: Billboard, Grass, Ground,
+                          # VolumetricLight (fake light beams), Effects (bloom),
+                          # CameraRig (constrained OrbitControls)
+    ui/                  # InfoPanel (left), HistoryPanel (right),
+                          # BottomBar (bottom-center CTA), ClaimModal
   hooks/                 # useBillboard / useBillboardHistory (onSnapshot)
   lib/
-    firebase/            # client SDK + tipos
-    stripe/checkout.ts    # chama a callable createCheckoutSession
-    panelTexture.ts        # desenha o anúncio atual num canvas → textura 3D
+    firebase/            # client SDK + types
+    stripe/checkout.ts    # calls the createCheckoutSession callable
+    panelTexture.ts        # draws the current ad onto a canvas → 3D texture
 functions/
   src/
     index.ts             # createCheckoutSession (onCall) + stripeWebhook
-    pricing.ts             # regra do "sempre sobe" (10% ou +R$5)
-    stripeClient.ts          # client Stripe + secrets
-firestore.rules          # leitura pública, escrita só via Admin SDK
+    pricing.ts             # the "always goes up" rule (next whole real)
+    stripeClient.ts          # Stripe client + secrets
+firestore.rules          # public read, write only via Admin SDK
 ```
 
-## Sobre a cena 3D
+## About the 3D scene
 
-As "luzinhas" que saem da base do billboard (`VolumetricLight.tsx`) são
-cones com blending aditivo e um gradiente radial em canvas — não
-iluminam nada de verdade, só simulam neblina/volumetria e ganham vida com
-o bloom do post-processing (`Effects.tsx`). O painel do anúncio é
-desenhado num `<canvas>` (`lib/panelTexture.ts`) e vira uma
-`THREE.CanvasTexture`, redesenhada toda vez que o Firestore emite um novo
-`billboard/current` — inclusive com uma animaçãozinha de "pop" na troca
-de dono.
+The "light beams" coming off the base of the billboard
+(`VolumetricLight.tsx`) are cones with additive blending and a radial
+canvas gradient — they don't actually light anything, they just fake
+fog/volumetrics and come alive through post-processing bloom
+(`Effects.tsx`). The ad panel is drawn onto a `<canvas>`
+(`lib/panelTexture.ts`) and turned into a `THREE.CanvasTexture`,
+redrawn every time Firestore emits a new `billboard/current` — complete
+with a little "pop" animation when the owner changes.
