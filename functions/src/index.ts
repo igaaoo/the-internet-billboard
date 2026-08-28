@@ -54,7 +54,7 @@ export const createCheckoutSession = onCall(
     if (data.priceCents % 100 !== 0) {
       throw new HttpsError(
         "invalid-argument",
-        "O lance precisa ser em reais inteiros, sem centavos.",
+        "O lance precisa ser em dólares inteiros, sem centavos.",
       );
     }
     if (data.brandName.length > 120) {
@@ -88,7 +88,7 @@ export const createCheckoutSession = onCall(
     if (data.priceCents < minNext) {
       throw new HttpsError(
         "failed-precondition",
-        `O lance mínimo agora é de ${(minNext / 100).toFixed(2)} (BRL).`,
+        `O lance mínimo agora é de $${(minNext / 100).toFixed(2)} (USD).`,
       );
     }
 
@@ -101,7 +101,7 @@ export const createCheckoutSession = onCall(
         line_items: [
           {
             price_data: {
-              currency: "brl",
+              currency: "usd",
               unit_amount: Math.round(data.priceCents),
               product_data: {
                 name: `The Internet Billboard — ${data.brandName}`.slice(0, 120),

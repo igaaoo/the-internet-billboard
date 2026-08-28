@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import type { BillboardDoc, ClaimDraft } from "@/lib/firebase/types";
-import { formatBRL } from "@/lib/format";
+import { formatUSD } from "@/lib/format";
 import { requestBillboardCheckout } from "@/lib/stripe/checkout";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { computeMinNextPriceCents } from "@/lib/pricing";
@@ -49,12 +49,12 @@ export function ClaimModal({
    */
   onPreview: (doc: BillboardDoc) => void;
 }) {
-  const minReais = String(Math.round(billboard.minNextPriceCents / 100));
+  const minDollars = String(Math.round(billboard.minNextPriceCents / 100));
   const previewMode = !isFirebaseConfigured;
 
   const [linkUrl, setLinkUrl] = useState("");
   const [email, setEmail] = useState("");
-  const [priceReais, setPriceReais] = useState(minReais);
+  const [priceDollars, setPriceDollars] = useState(minDollars);
 
   const [meta, setMeta] = useState<SiteMeta | null>(null);
   // true desde o instante em que a pessoa termina de colar o link até o
@@ -116,7 +116,7 @@ export function ClaimModal({
     };
   }, [linkUrl]);
 
-  const priceCents = Math.round(parseInt(priceReais || "0", 10)) * 100;
+  const priceCents = Math.round(parseInt(priceDollars || "0", 10)) * 100;
   const priceTooLow =
     Number.isFinite(priceCents) && priceCents < billboard.minNextPriceCents;
 
@@ -138,7 +138,7 @@ export function ClaimModal({
     }
     if (priceTooLow || !priceCents) {
       setError(
-        `Your bid must be at least ${formatBRL(billboard.minNextPriceCents)}.`,
+        `Your bid must be at least ${formatUSD(billboard.minNextPriceCents)}.`,
       );
       return;
     }
@@ -211,7 +211,7 @@ export function ClaimModal({
             <p className="text-sm text-ink-500 mt-1">
               minimum bid now:{" "}
               <span className="text-orange-600 font-semibold">
-                {formatBRL(billboard.minNextPriceCents)}
+                {formatUSD(billboard.minNextPriceCents)}
               </span>
             </p>
           </div>
@@ -269,18 +269,18 @@ export function ClaimModal({
         )}
 
         <Field
-          label={`How much to bid (min. ${formatBRL(billboard.minNextPriceCents)})`}
+          label={`How much to bid (min. ${formatUSD(billboard.minNextPriceCents)})`}
         >
           <div className="input flex items-center gap-1.5">
             <span className="text-ink-500 text-sm shrink-0">$</span>
             <input
               required
               type="number"
-              min={minReais}
+              min={minDollars}
               step="1"
               inputMode="numeric"
-              value={priceReais}
-              onChange={(e) => setPriceReais(e.target.value.replace(/[^\d]/g, ""))}
+              value={priceDollars}
+              onChange={(e) => setPriceDollars(e.target.value.replace(/[^\d]/g, ""))}
               className="flex-1 min-w-0 bg-transparent outline-none border-none p-0 text-sm text-ink-900"
             />
           </div>

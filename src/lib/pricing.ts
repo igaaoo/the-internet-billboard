@@ -4,8 +4,8 @@
  * mínimo no modo de prévia local, sem depender do backend.
  *
  * Lance mínimo: o próximo real inteiro acima do valor atual — sem
- * percentual, sem centavos. Um billboard vazio conta como R$0, então o
- * primeiro lance mínimo é R$1.
+ * percentual, sem centavos. Um billboard vazio conta como $0, então o
+ * primeiro lance mínimo é $1.
  */
 export function computeMinNextPriceCents(currentPriceCents: number): number {
   const base =

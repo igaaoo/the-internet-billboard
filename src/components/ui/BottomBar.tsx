@@ -1,7 +1,7 @@
 "use client";
 
 import type { BillboardDoc } from "@/lib/firebase/types";
-import { formatBRL } from "@/lib/format";
+import { formatUSD } from "@/lib/format";
 
 export function BottomBar({
   billboard,
@@ -17,7 +17,7 @@ export function BottomBar({
           current bid
         </span>
         <span className="font-display text-lg text-ink-900">
-          {billboard.claimCount > 0 ? formatBRL(billboard.priceCents) : "free"}
+          {billboard.claimCount > 0 ? formatUSD(billboard.priceCents) : "free"}
         </span>
       </div>
 
@@ -28,7 +28,7 @@ export function BottomBar({
           minimum next bid
         </span>
         <span className="font-display text-lg text-orange-600">
-          {formatBRL(billboard.minNextPriceCents)}
+          {formatUSD(billboard.minNextPriceCents)}
         </span>
       </div>
 

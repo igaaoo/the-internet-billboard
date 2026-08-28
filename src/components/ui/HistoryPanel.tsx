@@ -1,7 +1,7 @@
 "use client";
 
 import type { BillboardDoc, HistoryEntry } from "@/lib/firebase/types";
-import { formatBRL, formatCount, formatDuration } from "@/lib/format";
+import { formatUSD, formatCount, formatDuration } from "@/lib/format";
 import { trackHistoryClick } from "@/lib/firebase/engagement";
 
 export function HistoryPanel({
@@ -28,7 +28,7 @@ export function HistoryPanel({
         </div>
         {billboard.claimCount > 0 ? (
           <p className="text-sm text-ink-700 mt-1">
-            bid {formatBRL(billboard.priceCents)}
+            bid {formatUSD(billboard.priceCents)}
           </p>
         ) : (
           <p className="text-sm text-ink-700 mt-1">no one has claimed it yet</p>
@@ -100,7 +100,7 @@ export function HistoryPanel({
                     )}
                   </div>
                   <span className="text-xs text-ink-500 shrink-0">
-                    {formatBRL(h.priceCents)}
+                    {formatUSD(h.priceCents)}
                   </span>
                 </li>
               );

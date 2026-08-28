@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 import { getCurrentBillboardForOg } from "@/lib/firebase/serverRead";
-import { formatBRL } from "@/lib/format";
+import { formatUSD } from "@/lib/format";
 import { isSafeHttpUrl } from "@/lib/safeUrl";
 
 export const runtime = "nodejs";
@@ -153,7 +153,7 @@ export default async function OpengraphImage() {
           marginTop: 44,
         }}
       >
-        {claimed ? `Claimed for ${formatBRL(billboard.priceCents)} · ` : ""}
+        {claimed ? `Claimed for ${formatUSD(billboard.priceCents)} · ` : ""}
         pay more, take it over → theinternetbillboard.lol
       </div>
     </div>,

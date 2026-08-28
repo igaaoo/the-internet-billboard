@@ -13,7 +13,7 @@ export type BillboardDoc = {
   imageUrl?: string;
   /** Favicon do site do anunciante — puxado automático junto com o resto. */
   iconUrl?: string;
-  /** Valor pago pelo dono atual, em centavos (BRL). */
+  /** Valor pago pelo dono atual, em centavos (USD). */
   priceCents: number;
   /** Próximo lance mínimo aceito, em centavos. Calculado no servidor. */
   minNextPriceCents: number;

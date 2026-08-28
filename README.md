@@ -17,7 +17,7 @@ Cloud Functions.
 ## How the "bidding war" works
 
 There's no timed auction — the price only ever goes up. Each new ad has
-to pay at least the next whole real (R$1) above whatever the current
+to pay at least the next whole real ($1) above whatever the current
 owner paid — no percentage, no cents. That rule lives in
 `functions/src/pricing.ts` and is validated **twice on the server**:
 once when the checkout session is created, and again inside a
@@ -47,7 +47,7 @@ below.
    on Blaze (you're only billed for usage past them).
 3. Enable **Firestore** (production mode, pick a region close to your
    users, e.g. `southamerica-east1`)
-4. Under *Project settings → General*, add a **Web app** and copy the
+4. Under _Project settings → General_, add a **Web app** and copy the
    config into your `.env.local` (see `.env.local.example`)
 5. Edit `.firebaserc` and replace `COLOQUE-AQUI-O-ID-DO-SEU-PROJETO-FIREBASE`
    with your real Project ID
@@ -111,7 +111,7 @@ isn't optional:
    **Permissions** → **Add Principal** → principal `allUsers`, role
    **Cloud Run Invoker** → Save (confirm the "this allows public
    access" prompt).
-3. Repeat this for any *new* callable/HTTP function you add later —
+3. Repeat this for any _new_ callable/HTTP function you add later —
    it does not carry over from existing functions.
 
 ## 4. Deploy the front-end
