@@ -1,22 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isBlockedHostname, isSafeRemoteUrl } from "@/lib/safeUrl";
 
 export const runtime = "nodejs";
-
-const BLOCKED_HOSTNAME_PATTERNS = [
-  /^localhost$/i,
-  /^0\.0\.0\.0$/,
-  /^127\./,
-  /^10\./,
-  /^169\.254\./,
-  /^192\.168\./,
-  /^172\.(1[6-9]|2\d|3[0-1])\./,
-  /^\[?::1\]?$/,
-  /^\[?fc/i, // IPv6 unique local
-];
-
-function isBlockedHost(hostname: string) {
-  return BLOCKED_HOSTNAME_PATTERNS.some((re) => re.test(hostname));
-}
 
 function resolveUrl(base: string, maybeRelative: string): string | null {
   try {
@@ -96,7 +81,11 @@ export async function GET(req: NextRequest) {
 
   const empty = { title: null, description: null, imageUrl: null, iconUrl: null };
 
-  if (isBlockedHost(parsed.hostname)) {
+  if (isBlockedHostname(parsed.hostname)) {
+    return NextResponse.json(empty);
+  }
+  // também resolve o DNS de verdade, não só olha o hostname escrito.
+  if (!(await isSafeRemoteUrl(parsed.toString()))) {
     return NextResponse.json(empty);
   }
 

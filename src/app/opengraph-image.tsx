@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import { getCurrentBillboardForOg } from "@/lib/firebase/serverRead";
 import { formatBRL } from "@/lib/format";
+import { isSafeHttpUrl } from "@/lib/safeUrl";
 
 export const runtime = "nodejs";
 export const revalidate = 60;
@@ -12,6 +13,12 @@ export const contentType = "image/png";
 export default async function OpengraphImage() {
   const billboard = await getCurrentBillboardForOg();
   const claimed = billboard.claimCount > 0;
+  // defesa extra contra SSRF: mesmo que algo tenha passado da validação na
+  // criação do checkout, nunca busca uma imagem de host interno aqui.
+  const safeImageUrl =
+    billboard.imageUrl && isSafeHttpUrl(billboard.imageUrl)
+      ? billboard.imageUrl
+      : null;
 
   return new ImageResponse(
     <div
@@ -83,9 +90,11 @@ export default async function OpengraphImage() {
               alignItems: "center",
             }}
           >
-            {billboard.imageUrl ? (
+            {safeImageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- JSX do Satori (next/og), não é DOM real; next/image não se aplica aqui.
               <img
-                src={billboard.imageUrl}
+                src={safeImageUrl}
+                alt=""
                 width={140}
                 height={140}
                 style={{
