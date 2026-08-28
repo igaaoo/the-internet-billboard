@@ -7,6 +7,7 @@ import type Stripe from "stripe";
 
 import { getStripeClient, stripeSecretKey, stripeWebhookSecret } from "./stripeClient";
 import { computeMinNextPriceCents } from "./pricing";
+import { isSafeHttpUrl } from "./validation";
 import type { ClaimDraft } from "./types";
 
 initializeApp();
@@ -16,8 +17,20 @@ const siteUrl = defineString("SITE_URL", {
   default: "https://theinternetbillboard.lol",
 });
 
+// Restringe quem pode chamar as callables via navegador — não impede
+// abuso direto via curl/script (isso não existe pra endpoint público),
+// mas barra scripts rodando em outros sites de abusarem via CORS.
+const ALLOWED_ORIGINS = [
+  "https://theinternetbillboard.lol",
+  "https://www.theinternetbillboard.lol",
+  /^http:\/\/localhost:\d+$/,
+];
+
 const BILLBOARD_REF = () => db.collection("billboard").doc("current");
 const SITE_STATS_REF = () => db.collection("stats").doc("site");
+// Documento separado, nunca lido pelo cliente — só aqui vive o e-mail do
+// dono atual, pra não expor PII no doc público billboard/current.
+const BILLBOARD_PRIVATE_REF = () => db.collection("billboardPrivate").doc("current");
 
 /**
  * Callable chamada pelo front-end quando alguém tenta assumir o billboard.
@@ -25,7 +38,7 @@ const SITE_STATS_REF = () => db.collection("stats").doc("site");
  * cria uma Stripe Checkout Session.
  */
 export const createCheckoutSession = onCall(
-  { secrets: [stripeSecretKey], cors: true },
+  { secrets: [stripeSecretKey], cors: ALLOWED_ORIGINS },
   async (request) => {
     const data = request.data as ClaimDraft;
 
@@ -44,6 +57,28 @@ export const createCheckoutSession = onCall(
         "O lance precisa ser em reais inteiros, sem centavos.",
       );
     }
+    if (data.brandName.length > 120) {
+      throw new HttpsError("invalid-argument", "brandName muito longo.");
+    }
+    if (data.tagline && data.tagline.length > 300) {
+      throw new HttpsError("invalid-argument", "tagline muito longa.");
+    }
+    for (const [field, value] of [
+      ["linkUrl", data.linkUrl],
+      ["imageUrl", data.imageUrl],
+      ["iconUrl", data.iconUrl],
+    ] as const) {
+      if (!value) continue;
+      if (value.length > 500) {
+        throw new HttpsError("invalid-argument", `${field} muito longo.`);
+      }
+      if (!isSafeHttpUrl(value)) {
+        throw new HttpsError(
+          "invalid-argument",
+          `${field} precisa ser uma URL http(s) válida e pública.`,
+        );
+      }
+    }
 
     const billboardSnap = await BILLBOARD_REF().get();
     const current = billboardSnap.exists ? billboardSnap.data() : null;
@@ -59,37 +94,42 @@ export const createCheckoutSession = onCall(
 
     const stripe = getStripeClient();
 
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      payment_method_types: ["card"],
-      line_items: [
-        {
-          price_data: {
-            currency: "brl",
-            unit_amount: Math.round(data.priceCents),
-            product_data: {
-              name: `The Internet Billboard — ${data.brandName}`.slice(0, 120),
-              description: "Assumir o billboard com o seu anúncio",
+    const session = await stripe.checkout.sessions.create(
+      {
+        mode: "payment",
+        payment_method_types: ["card"],
+        line_items: [
+          {
+            price_data: {
+              currency: "brl",
+              unit_amount: Math.round(data.priceCents),
+              product_data: {
+                name: `The Internet Billboard — ${data.brandName}`.slice(0, 120),
+                description: "Assumir o billboard com o seu anúncio",
+              },
             },
+            quantity: 1,
           },
-          quantity: 1,
+        ],
+        customer_email: data.email,
+        success_url: `${siteUrl.value()}?claim=success`,
+        cancel_url: `${siteUrl.value()}?claim=cancelled`,
+        metadata: {
+          brandName: data.brandName.slice(0, 120),
+          tagline: (data.tagline ?? "").slice(0, 160),
+          linkUrl: (data.linkUrl ?? "").slice(0, 500),
+          bgColor: data.bgColor || "#f2601a",
+          textColor: data.textColor || "#fff6e8",
+          imageUrl: (data.imageUrl ?? "").slice(0, 500),
+          iconUrl: (data.iconUrl ?? "").slice(0, 500),
+          email: data.email.slice(0, 200),
+          priceCents: String(Math.round(data.priceCents)),
         },
-      ],
-      customer_email: data.email,
-      success_url: `${siteUrl.value()}?claim=success`,
-      cancel_url: `${siteUrl.value()}?claim=cancelled`,
-      metadata: {
-        brandName: data.brandName.slice(0, 120),
-        tagline: (data.tagline ?? "").slice(0, 160),
-        linkUrl: (data.linkUrl ?? "").slice(0, 500),
-        bgColor: data.bgColor || "#f2601a",
-        textColor: data.textColor || "#fff6e8",
-        imageUrl: (data.imageUrl ?? "").slice(0, 500),
-        iconUrl: (data.iconUrl ?? "").slice(0, 500),
-        email: data.email.slice(0, 200),
-        priceCents: String(Math.round(data.priceCents)),
       },
-    });
+      // com a mesma requestId (gerada uma vez por tentativa no cliente), um
+      // retry de rede não cria uma segunda sessão/cobrança duplicada.
+      data.requestId ? { idempotencyKey: data.requestId } : undefined,
+    );
 
     // guarda o rascunho pendente pra o webhook aplicar depois de confirmado
     await db.collection("pendingClaims").doc(session.id).set({
@@ -107,7 +147,7 @@ export const createCheckoutSession = onCall(
  * anúncio atual. Não confia em nada vindo do cliente além do tipo do
  * evento — o incremento em si é sempre feito pelo Admin SDK.
  */
-export const trackEngagement = onCall({ cors: true }, async (request) => {
+export const trackEngagement = onCall({ cors: ALLOWED_ORIGINS }, async (request) => {
   const type = (request.data as { type?: string })?.type;
   if (type !== "view" && type !== "click") {
     throw new HttpsError("invalid-argument", "type deve ser 'view' ou 'click'.");
@@ -122,7 +162,7 @@ export const trackEngagement = onCall({ cors: true }, async (request) => {
  * Contador global de visitantes do site — nunca zera (diferente do
  * viewCount do billboard, que reinicia a cada troca de dono).
  */
-export const trackSiteVisit = onCall({ cors: true }, async () => {
+export const trackSiteVisit = onCall({ cors: ALLOWED_ORIGINS }, async () => {
   await SITE_STATS_REF().set(
     { totalVisitors: FieldValue.increment(1) },
     { merge: true },
@@ -134,7 +174,7 @@ export const trackSiteVisit = onCall({ cors: true }, async () => {
  * Clique num anúncio antigo do hall of fame — incrementa o clickCount
  * daquela entrada específica do histórico (não a do dono atual).
  */
-export const trackHistoryClick = onCall({ cors: true }, async (request) => {
+export const trackHistoryClick = onCall({ cors: ALLOWED_ORIGINS }, async (request) => {
   const historyId = (request.data as { historyId?: string })?.historyId;
   if (!historyId || typeof historyId !== "string") {
     throw new HttpsError("invalid-argument", "historyId é obrigatório.");
@@ -209,8 +249,10 @@ export const stripeWebhook = onRequest(
             { status: "needs_refund", paidCents },
             { merge: true },
           );
-          logger.warn(
-            `Checkout ${session.id} pagou menos que o mínimo atual — sinalizado pra reembolso.`,
+          // error (não warn) de propósito: isso é dinheiro de cliente parado
+          // esperando reembolso manual — precisa aparecer no Error Reporting.
+          logger.error(
+            `Checkout ${session.id} pagou menos que o mínimo atual — sinalizado pra reembolso manual (needs_refund).`,
           );
           return;
         }
@@ -240,13 +282,15 @@ export const stripeWebhook = onRequest(
           iconUrl: pending.iconUrl ?? "",
           priceCents: paidCents,
           minNextPriceCents: computeMinNextPriceCents(paidCents),
-          ownerEmail: pending.email,
           claimedAt: FieldValue.serverTimestamp(),
           claimCount: (current?.claimCount ?? 0) + 1,
           // zera as métricas do anúncio anterior — cada reinado conta as suas.
           viewCount: 0,
           clickCount: 0,
         });
+
+        // e-mail fica só nesse doc privado — nunca no billboard/current público.
+        tx.set(BILLBOARD_PRIVATE_REF(), { ownerEmail: pending.email });
 
         tx.set(pendingRef, { status: "completed" }, { merge: true });
       });

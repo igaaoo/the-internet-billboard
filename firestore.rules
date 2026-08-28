@@ -22,6 +22,12 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // E-mail do dono atual — deliberadamente separado de billboard/current
+    // (que é público) pra não vazar PII. Só o Admin SDK acessa.
+    match /billboardPrivate/{docId} {
+      allow read, write: if false;
+    }
+
     // Contadores globais do site (ex: total de visitantes) — nunca zeram,
     // independem de quem é o dono atual do billboard. Leitura pública,
     // escrita só via Admin SDK.

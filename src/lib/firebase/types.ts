@@ -17,8 +17,6 @@ export type BillboardDoc = {
   priceCents: number;
   /** Próximo lance mínimo aceito, em centavos. Calculado no servidor. */
   minNextPriceCents: number;
-  /** E-mail de contato do anunciante (não fica público, só uso interno). */
-  ownerEmail?: string;
   /** Quando este anúncio assumiu o billboard. */
   claimedAt?: { seconds: number; nanoseconds: number } | null;
   /** Quantas vezes o billboard já trocou de dono. */
@@ -58,6 +56,8 @@ export type ClaimDraft = {
   textColor: string;
   email: string;
   priceCents: number;
+  /** Gerado uma vez por tentativa de envio — vira a idempotency key da Stripe. */
+  requestId: string;
 };
 
 export const DEFAULT_BILLBOARD: BillboardDoc = {
@@ -66,7 +66,7 @@ export const DEFAULT_BILLBOARD: BillboardDoc = {
   bgColor: "#f2601a",
   textColor: "#fff6e8",
   priceCents: 0,
-  minNextPriceCents: 2000,
+  minNextPriceCents: 100,
   claimCount: 0,
   claimedAt: null,
   viewCount: 0,

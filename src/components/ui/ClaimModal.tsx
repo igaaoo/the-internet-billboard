@@ -72,6 +72,8 @@ export function ClaimModal({
   useEffect(() => {
     const trimmed = linkUrl.trim();
     if (!trimmed) {
+      // reset síncrono e intencional: campo esvaziado, não há mais o que buscar.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMeta(null);
       setMetaTried(false);
       setMetaPending(false);
@@ -150,6 +152,9 @@ export function ClaimModal({
       bgColor: PANEL_BG,
       textColor: PANEL_TEXT,
       email,
+      // uma por tentativa de envio — a Cloud Function usa isso como
+      // idempotency key da Stripe, pra um retry de rede não duplicar a cobrança.
+      requestId: crypto.randomUUID(),
     };
 
     if (previewMode) {
@@ -361,8 +366,8 @@ function SitePreview({
           }}
         />
       ) : (
-        // eslint-disable-next-line @next/next/no-img-element
         meta?.iconUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={meta.iconUrl}
             alt=""

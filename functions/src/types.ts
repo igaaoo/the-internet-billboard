@@ -8,6 +8,7 @@ export type ClaimDraft = {
   iconUrl?: string;
   email: string;
   priceCents: number;
+  requestId?: string;
 };
 
 export type BillboardDoc = {
@@ -20,7 +21,6 @@ export type BillboardDoc = {
   iconUrl?: string;
   priceCents: number;
   minNextPriceCents: number;
-  ownerEmail?: string;
   claimedAt: FirebaseFirestore.FieldValue | FirebaseFirestore.Timestamp | null;
   claimCount: number;
   /** Visitas e cliques do anúncio atual — zerados a cada troca de dono. */
