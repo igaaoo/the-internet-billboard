@@ -6,7 +6,6 @@ import {
   Noise,
   HueSaturation,
   Bloom,
-  LensFlare,
 } from "@react-three/postprocessing";
 import { BlendFunction } from "postprocessing";
 

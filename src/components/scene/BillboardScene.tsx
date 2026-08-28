@@ -45,7 +45,7 @@ export function BillboardScene({ billboard }: { billboard: BillboardDoc }) {
     <Canvas
       shadows="percentage"
       dpr={[1, 1.75]}
-      camera={{ position: [0.4, 1, 11.8], fov: 32, near: 2, far: 30 }}
+      camera={{ position: [0.4, 2.9, 11.8], fov: 32, near: 2, far: 30 }}
       gl={{
         antialias: true,
         toneMapping: THREE.ACESFilmicToneMapping,
