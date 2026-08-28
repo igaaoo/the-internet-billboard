@@ -9,7 +9,6 @@ import {
   drawPanelBaseTexture,
   drawPanelOverlayTexture,
 } from "@/lib/panelTexture";
-import { trackClick } from "@/lib/firebase/engagement";
 import { VolumetricLights } from "./VolumetricLight";
 
 const FRAME_COLOR = "#f3e6cf";
@@ -88,33 +87,6 @@ function Legs({ legX }: { legX: number }) {
   );
 }
 
-function ClipFixtures({ xs }: { xs: number[] }) {
-  const mat = (
-    <meshStandardMaterial
-      color={FRAME_COLOR_DARK}
-      roughness={0.5}
-      metalness={0.15}
-    />
-  );
-
-  return (
-    <group>
-      {xs.map((x) => (
-        <group key={x} position={[x, PANEL_BOTTOM_Y - 0.02, 0.14]}>
-          <RoundedBox
-            args={[0.16, 0.12, 0.12]}
-            radius={0.03}
-            smoothness={4}
-            castShadow
-          >
-            {mat}{" "}
-          </RoundedBox>{" "}
-        </group>
-      ))}{" "}
-    </group>
-  );
-}
-
 export function Billboard({
   billboard,
   isNight = false,
@@ -122,9 +94,15 @@ export function Billboard({
   billboard: BillboardDoc;
   isNight?: boolean;
 }) {
-  const baseCanvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  // canvases criados uma única vez via inicializador preguiçoso do
+  // useState — mutar um ref durante o render (o padrão antigo aqui) não é
+  // mais seguro nas regras novas do React.
+  const [baseCanvas] = useState<HTMLCanvasElement | null>(() =>
+    typeof document !== "undefined" ? document.createElement("canvas") : null,
+  );
+  const [overlayCanvas] = useState<HTMLCanvasElement | null>(() =>
+    typeof document !== "undefined" ? document.createElement("canvas") : null,
+  );
 
   const [baseTexture, setBaseTexture] = useState<THREE.CanvasTexture | null>(
     null,
@@ -158,25 +136,16 @@ export function Billboard({
     [aspect],
   );
 
-  /**
-
-* Centro vertical do painel.
-  */
+  /** Centro vertical do painel. */
   const panelCenterY = PANEL_BOTTOM_Y + panelH / 2;
 
-  /**
-
-* Altura total da moldura.
-  */
+  /** Altura total da moldura. */
   const frameHeight = panelH + 0.36;
 
   /**
-
-* Topo real da moldura.
-*
-* As luminárias acompanham automaticamente
-* o tamanho do outdoor.
-  */
+   * Topo real da moldura. As luminárias acompanham automaticamente o
+   * tamanho do outdoor.
+   */
   const frameTopY = panelCenterY + frameHeight / 2;
 
   const legX = panelW * LEG_X_RATIO;
@@ -186,19 +155,10 @@ export function Billboard({
     [panelW],
   );
 
-  if (!baseCanvasRef.current && typeof document !== "undefined") {
-    baseCanvasRef.current = document.createElement("canvas");
-
-    overlayCanvasRef.current = document.createElement("canvas");
-  }
-
-  /**
-
-* Recarrega a imagem do anunciante
-* quando a URL mudar.
-  */
+  /** Recarrega a imagem do anunciante quando a URL mudar. */
   useEffect(() => {
     if (!billboard.imageUrl) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset síncrono e intencional: sem imageUrl não há o que buscar.
       setImage(null);
       return;
     }
@@ -255,32 +215,22 @@ export function Billboard({
     };
   }, [billboard.imageUrl]);
 
-  /**
-
-* Redesenha as duas camadas do painel
-* sempre que o anúncio atual mudar.
-  */
+  /** Redesenha as duas camadas do painel sempre que o anúncio atual mudar. */
   useEffect(() => {
-    if (!baseCanvasRef.current || !overlayCanvasRef.current) {
+    if (!baseCanvas || !overlayCanvas) {
       return;
     }
 
-    const base = drawPanelBaseTexture(
-      baseCanvasRef.current,
-      billboard,
-      image,
-      canvasSize,
-    );
+    const base = drawPanelBaseTexture(baseCanvas, billboard, image, canvasSize);
 
-    const overlay = drawPanelOverlayTexture(
-      overlayCanvasRef.current,
-      billboard,
-      canvasSize,
-    );
+    const overlay = drawPanelOverlayTexture(overlayCanvas, billboard, canvasSize);
 
     // Pequena animação de troca de anúncio.
     popRef.current = 1;
 
+    // sincroniza as texturas recém-desenhadas com o estado — legítimo,
+    // é o próprio propósito desse effect.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setBaseTexture((prev) => {
       prev?.dispose();
       return base;
@@ -290,13 +240,9 @@ export function Billboard({
       prev?.dispose();
       return overlay;
     });
-  }, [billboard, image, canvasSize]);
+  }, [billboard, image, canvasSize, baseCanvas, overlayCanvas]);
 
-  /**
-
-* Libera as últimas texturas
-* quando o componente desmonta.
-  */
+  /** Libera as últimas texturas quando o componente desmonta. */
   useEffect(() => {
     return () => {
       baseTexture?.dispose();
@@ -306,11 +252,7 @@ export function Billboard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /**
-
-* Mantém apenas a animação
-* de pop do outdoor.
-  */
+  /** Mantém apenas a animação de pop do outdoor. */
   useFrame((_, delta) => {
     if (popRef.current > 0 && panelGroupRef.current) {
       popRef.current = Math.max(0, popRef.current - delta * 2.2);
@@ -345,7 +287,6 @@ export function Billboard({
         <mesh
           onClick={() => {
             if (billboard.linkUrl) {
-              trackClick();
               window.open(billboard.linkUrl, "_blank");
             }
           }}
