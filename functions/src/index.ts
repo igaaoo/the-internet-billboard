@@ -23,6 +23,7 @@ const siteUrl = defineString("SITE_URL", {
 const ALLOWED_ORIGINS = [
   "https://theinternetbillboard.lol",
   "https://www.theinternetbillboard.lol",
+  "https://the-internet-billboard.vercel.app",
   /^http:\/\/localhost:\d+$/,
 ];
 
@@ -43,25 +44,25 @@ export const createCheckoutSession = onCall(
     const data = request.data as ClaimDraft;
 
     if (!data?.brandName?.trim()) {
-      throw new HttpsError("invalid-argument", "brandName é obrigatório.");
+      throw new HttpsError("invalid-argument", "brandName is required.");
     }
     if (!data?.email?.trim()) {
-      throw new HttpsError("invalid-argument", "email é obrigatório.");
+      throw new HttpsError("invalid-argument", "email is required.");
     }
     if (!Number.isFinite(data.priceCents) || data.priceCents <= 0) {
-      throw new HttpsError("invalid-argument", "priceCents inválido.");
+      throw new HttpsError("invalid-argument", "priceCents is invalid.");
     }
     if (data.priceCents % 100 !== 0) {
       throw new HttpsError(
         "invalid-argument",
-        "O lance precisa ser em dólares inteiros, sem centavos.",
+        "Your bid must be in whole dollars, no cents.",
       );
     }
     if (data.brandName.length > 120) {
-      throw new HttpsError("invalid-argument", "brandName muito longo.");
+      throw new HttpsError("invalid-argument", "brandName is too long.");
     }
     if (data.tagline && data.tagline.length > 300) {
-      throw new HttpsError("invalid-argument", "tagline muito longa.");
+      throw new HttpsError("invalid-argument", "tagline is too long.");
     }
     for (const [field, value] of [
       ["linkUrl", data.linkUrl],
@@ -70,12 +71,12 @@ export const createCheckoutSession = onCall(
     ] as const) {
       if (!value) continue;
       if (value.length > 500) {
-        throw new HttpsError("invalid-argument", `${field} muito longo.`);
+        throw new HttpsError("invalid-argument", `${field} is too long.`);
       }
       if (!isSafeHttpUrl(value)) {
         throw new HttpsError(
           "invalid-argument",
-          `${field} precisa ser uma URL http(s) válida e pública.`,
+          `${field} must be a valid, public http(s) URL.`,
         );
       }
     }
@@ -88,7 +89,7 @@ export const createCheckoutSession = onCall(
     if (data.priceCents < minNext) {
       throw new HttpsError(
         "failed-precondition",
-        `O lance mínimo agora é de $${(minNext / 100).toFixed(2)} (USD).`,
+        `The minimum bid right now is $${(minNext / 100).toFixed(2)} (USD).`,
       );
     }
 
@@ -105,7 +106,7 @@ export const createCheckoutSession = onCall(
               unit_amount: Math.round(data.priceCents),
               product_data: {
                 name: `The Internet Billboard — ${data.brandName}`.slice(0, 120),
-                description: "Assumir o billboard com o seu anúncio",
+                description: "Claim the billboard with your ad",
               },
             },
             quantity: 1,
@@ -150,7 +151,7 @@ export const createCheckoutSession = onCall(
 export const trackEngagement = onCall({ cors: ALLOWED_ORIGINS }, async (request) => {
   const type = (request.data as { type?: string })?.type;
   if (type !== "view" && type !== "click") {
-    throw new HttpsError("invalid-argument", "type deve ser 'view' ou 'click'.");
+    throw new HttpsError("invalid-argument", "type must be 'view' or 'click'.");
   }
 
   const field = type === "view" ? "viewCount" : "clickCount";
@@ -177,7 +178,7 @@ export const trackSiteVisit = onCall({ cors: ALLOWED_ORIGINS }, async () => {
 export const trackHistoryClick = onCall({ cors: ALLOWED_ORIGINS }, async (request) => {
   const historyId = (request.data as { historyId?: string })?.historyId;
   if (!historyId || typeof historyId !== "string") {
-    throw new HttpsError("invalid-argument", "historyId é obrigatório.");
+    throw new HttpsError("invalid-argument", "historyId is required.");
   }
 
   const ref = BILLBOARD_REF().collection("history").doc(historyId);
