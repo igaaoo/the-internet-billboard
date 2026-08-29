@@ -387,8 +387,8 @@ function SitePreview({
         )}
         {noMetaFound && (
           <p className="text-xs text-ink-500">
-            não achamos og:title/og:description/og:image nesse link — vamos usar
-            só o nome do domínio mesmo.
+            couldn't find og:title/og:description/og:image on that link —
+            we'll just use the domain name instead.
           </p>
         )}
       </div>
